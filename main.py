@@ -15,10 +15,13 @@ st.header('Choose Token & Time range')
 col1, col2 = st.columns(2)
 with col1:
     token = st.selectbox('Select token',
-                ('ETH','Option2','Option3','Option4'))
+                options=('Select token','ETH','MATIC','SAND'),
+                index=0)
     # print(token)
 with col2:
-    if token:
+    if token == 'Select token':
+        st.slider('Select token first!', disabled=True)
+    else:
         start, end = st.slider(
             'Select time range',
             min_value=datetime(2020, 1, 1),
@@ -27,8 +30,6 @@ with col2:
             format="YYYY-MM-DD")
         st.write('Start date:', start)
         st.write('End date:', end)
-    else:
-        st.slider('Select token first!', disabled=True)
 st.header('Price Chart')
 
 st.header('On-chain Network Visualization')
