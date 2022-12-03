@@ -20,13 +20,18 @@ with col1:
     # print(token)
 with col2:
     if token == 'Select token':
-        st.slider('Select token first!', disabled=True)
+        start, end = st.slider('Select token first!', 
+            min_value=datetime(2020, 1, 1),
+            max_value=datetime(2022, 12, 1),
+            value=(datetime(2020, 6, 1), datetime(2021, 7, 1)),
+            format="YYYY-MM-DD",
+            disabled=True)
     else:
         start, end = st.slider(
             'Select time range',
             min_value=datetime(2020, 1, 1),
             max_value=datetime(2022, 12, 1),
-            value=(datetime(2021, 1, 1), datetime(2021, 2, 1)),
+            value=(datetime(2020, 6, 1), datetime(2021, 7, 1)),
             format="YYYY-MM-DD")
         st.write('Start date:', start)
         st.write('End date:', end)
