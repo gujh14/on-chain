@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, date, time, timedelta
 import requests
 
 token_dict = {"BTC": "bitcoin", "ETH": "ethereum"}
@@ -36,24 +36,29 @@ with col1:
                 index=0)
     # print(token)
 with col2:
-    if token == 'Select token':
-        start, end = st.slider('Select token first!', 
-            min_value=datetime(2020, 1, 1),
-            max_value=datetime(2022, 12, 1),
-            value=(datetime(2020, 6, 1), datetime(2021, 7, 1)),
-            format="YYYY-MM-DD",
-            disabled=True)
-        st.write('Start date:', start)
-        st.write('End date:', end)
+    disabled = True if token == 'Select token' else False
+    st.write('Time Zone: UTC')
+    st.write('Select date range')
+    min_date = datetime(2020, 1, 1) # modify here
+    max_date = datetime(2021, 1, 1) # modify here
+    user_start = st.date_input('Start date', min_date, disabled=disabled)
+    user_end = st.date_input('End date', min_date + timedelta(days=2), disabled=disabled)
+    # warning if user_end < user_start
+    if user_end < user_start:
+        st.warning('End date must fall after start date.')
+        flag = False
     else:
-        start, end = st.slider(
-            'Select time range',
-            min_value=datetime(2020, 1, 1),
-            max_value=datetime(2022, 12, 1),
-            value=(datetime(2020, 6, 1), datetime(2021, 7, 1)),
-            format="YYYY-MM-DD")
-        st.write('Start date:', start)
-        st.write('End date:', end)
+        flag = True
+    user_start, user_end = st.slider('Select time range',
+        min_value=datetime.combine(user_start, time(0, 0)),
+        max_value=datetime.combine(user_end, time(23, 59)),
+        value=(datetime.combine(user_start, time(0, 0)), datetime.combine(user_end, time(23, 59))),
+        format="YYYY-MM-DD HH:mm",
+        disabled=not (not disabled and flag))
+    
+    st.write('From:', user_start)
+    st.write('To:', user_end)
+
 if token == "Select token":
     st.header('Token Price Info')
     col1, col2, col3, col4 = st.columns(4)
