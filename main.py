@@ -1,8 +1,12 @@
 import streamlit as st
+import streamlit.components.v1 as components
+
 import numpy as np
 import pandas as pd
 import networkx as nx
-import plotly.graph_objects as go
+from pyvis.network import Network
+
+#import plotly.graph_objects as go
 from datetime import datetime, date, time, timedelta
 import requests
 
@@ -86,10 +90,58 @@ else:
 st.header('On-chain Network Visualization')
 col1, _ = st.columns(2)
 with col1:
-    user_min = st.slider('Adjust MIN value',
-                min_value=0,
-                max_value=100,
-                value=40)
-st.image('https://supplychainbeyond.com/wp-content/uploads/2019/08/supply-chain-network-applications-multi-party-networks-5.jpg', caption='On-chain Network', use_column_width=True)
-# st.plotly_chart()
+    user_min = st.slider('Adjust MIN value',min_value=0,max_value=100,value=40)
 st.write(user_min)
+# st.image('https://supplychainbeyond.com/wp-content/uploads/2019/08/supply-chain-network-applications-multi-party-networks-5.jpg', caption='On-chain Network', use_column_width=True)
+# # st.plotly_chart()
+df=pd.read_csv('test_data_semi.csv')
+# Save and read graph as HTML file (on Streamlit Sharing)
+form='%Y-%m-%d %H:%M'
+df['Date'] = pd.to_datetime(df['Date'],format='%Y-%m-%d %H:%M')
+user_start=datetime.datetime(user_start)
+user_end=datetime.datetime(user_end)
+print("STart: ",datetime.datetime64(user_start))
+print("End:",user_end)
+print(df['Date'])
+df_date= df.loc[df['Date'].isin(pd.date_range(user_start,user_end))]
+
+# df_date= df.loc[df['Date'].isin(pd.date_range(datetime.strftime(user_start,format=form), datetime.strftime(user_end,format=form)))]
+print(df_date)
+df_select = df_date.loc[df_date['Value']>user_min].reset_index(drop=True)
+  
+# Create networkx graph object from pandas dataframe
+G = nx.from_pandas_edgelist(df_select, source='From', target='To', edge_attr='Value', create_using=nx.MultiGraph())
+d=dict(G.degree)
+scale=10
+#Updating edge weighted degree dict
+d.update((x, scale*y) for x, y in d.items())
+    
+#Setting up size attribute
+nx.set_node_attributes(G,d,'size')
+    
+# Initiate PyVis network object
+coin_net = Network(height='465px', bgcolor='#222222', font_color='white')
+
+# Take Networkx graph and translate it to a PyVis graph format
+coin_net.from_nx(G)
+
+# Generate network with specific layout settings
+coin_net.repulsion(node_distance=420, central_gravity=0.33,
+                       spring_length=110, spring_strength=0.10,
+                       damping=0.95)
+
+# Save and read graph as HTML file (on Streamlit Sharing)
+try:
+    path = '/tmp'
+    coin_net.save_graph(f'{path}/pyvis_graph.html')
+    HtmlFile = open(f'{path}/pyvis_graph.html', 'r', encoding='utf-8')
+
+# Save and read graph as HTML file (locally)
+except:
+    path = '/html_files'
+    coin_net.save_graph(f'{path}/pyvis_graph.html')
+    HtmlFile = open(f'{path}/pyvis_graph.html', 'r', encoding='utf-8')
+
+# Load HTML file in HTML component for display on Streamlit page
+components.html(HtmlFile.read(), height=435)
+
