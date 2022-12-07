@@ -7,6 +7,8 @@ def get_data(token, user_start, user_end, user_min, n):
     return crud.getDF(sql)
 
 def getDateRange(token):
+    if token == "Select token":
+        return dt.date(2022, 11, 20), dt.date(2022, 12, 1)
     crud = CRUD_tx()
 
     minsql = "SELECT MIN(datetime) from {schema}.{table}".format(schema="testschema", table=token)
