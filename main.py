@@ -6,12 +6,12 @@ import pandas as pd
 import networkx as nx
 from pyvis.network import Network
 
-#import plotly.graph_objects as go
 import datetime as dt
 import requests
 import time
 
 from data import get_data
+from data import getDateRange
 
 ticker2name = {
     "BTC": "bitcoin",
@@ -92,8 +92,7 @@ st.header('Choose Datetime range')
 with st.form("Choose Date range"):
     # Select date range
     st.write('Select date range (Time Zone: UTC)')
-    min_date = dt.date(2022, 11, 19) # modify here
-    max_date = dt.date(2022, 12, 31) # modify here
+    min_date, max_date = getDateRange(token)
     user_start_date = st.date_input(f'Start date: from {min_date}', min_date, disabled=False)
     user_end_date = st.date_input(f'End date: to {max_date}', min_date + dt.timedelta(days=2), disabled=False)
     date_submitted = st.form_submit_button("Continue")
@@ -131,7 +130,16 @@ st.header('On-chain Network Visualization')
 # st.text(f"From: {user_start_time}")
 # st.text(f"To: {user_end_time}")
 
-user_min = st.slider('Adjust MIN value',min_value=0,max_value=100,value=40) # need to modify
+min_value = 0
+max_value = 0
+if token == 'ETH':
+    min_value = 30
+    max_value = 300
+else:
+    min_value = 1000
+    max_value = 10000
+
+user_min = st.slider('Adjust MIN value',min_value=min_value,max_value=max_value,value=min_value) # need to modify
 
 st.write(user_min)
 

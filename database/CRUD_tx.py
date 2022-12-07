@@ -21,6 +21,16 @@ class CRUD_tx(CRUD):
         
         return result
 
+    def readDateDB(self,sql):
+        try:
+            self.cursor.execute(sql)
+            result = self.cursor.fetchall()[0][0][:10]
+        except Exception as e :
+            result = (" read DB err",e)
+            print(result)
+        
+        return result
+
     def getDF(self,sql):
         try:
             self.cursor.execute(sql)
