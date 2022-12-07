@@ -11,7 +11,9 @@ import datetime as dt
 import requests
 import time
 
-token_dict = {"BTC": "bitcoin", "ETH": "ethereum"}
+from data import get_data
+
+token_dict = {"BTC": "bitcoin", "ETH": "ethereum", "UNI": "uniswap", "LINK": "chainlink", "APE": "apecoin"}
 
 st.title('On-chain Data Visualizer')
 
@@ -42,12 +44,12 @@ with st.form("Choose Token & Date range"):
     # Select token
     st.write("Select token ticker")
     token = st.selectbox('Select token',
-                options=('Select token','ETH','MATIC','SAND'),
+                options=('Select token','ETH','UNI','LINK','APE'),
                 index=0, label_visibility='collapsed')
     # Select date range
     st.write('Select date range (Time Zone: UTC)')
-    min_date = dt.date(2020, 1, 1) # modify here
-    max_date = dt.date(2021, 12, 31) # modify here
+    min_date = dt.date(2022, 11, 19) # modify here
+    max_date = dt.date(2022, 12, 31) # modify here
     user_start_date = st.date_input(f'Start date: from {min_date}', min_date, disabled=False)
     user_end_date = st.date_input(f'End date: to {max_date}', min_date + dt.timedelta(days=2), disabled=False)
     date_submitted = st.form_submit_button("Continue")
@@ -106,28 +108,15 @@ if time_submitted:
     with col1:
         user_min = st.slider('Adjust MIN value',min_value=0,max_value=100,value=40)
     st.write(user_min)
-    # st.image('https://supplychainbeyond.com/wp-content/uploads/2019/08/supply-chain-network-applications-multi-party-networks-5.jpg', caption='On-chain Network', use_column_width=True)
-    # # st.plotly_chart()
-    df=pd.read_csv('test_data_semi.csv')
-    # Save and read graph as HTML file (on Streamlit Sharing)
-    form='%Y-%m-%d %H:%M'
-    df['Date'] = pd.to_datetime(df['Date'],format='%Y-%m-%d %H:%M')
-    '''
-    가현님 여기 datetime object 들 수정 부탁드려요ㅠㅠ 위에 import datetime as dt 로 수정했습니다!
-    '''
-    user_start=user_start_time
-    user_end=user_end_time
-    print("STart: ", datetime.datetime64(user_start))
-    print("End:",user_end)
-    print(df['Date'])
-    df_date= df.loc[df['Date'].isin(pd.date_range(user_start,user_end))]
 
-    # df_date= df.loc[df['Date'].isin(pd.date_range(datetime.strftime(user_start,format=form), datetime.strftime(user_end,format=form)))]
-    print(df_date)
-    df_select = df_date.loc[df_date['Value']>user_min].reset_index(drop=True)
+    if token != "Select token":
+        df = get_data(token, str(user_start_time), str(user_end_time), user_min, 50)
     
+    print(str(user_start_time))
+    print(str(user_end_time))
+    print(user_min)
     # Create networkx graph object from pandas dataframe
-    G = nx.from_pandas_edgelist(df_select, source='From', target='To', edge_attr='Value', create_using=nx.MultiGraph())
+    G = nx.from_pandas_edgelist(df, source='From', target='To', edge_attr='Value', create_using=nx.MultiGraph())
     d=dict(G.degree)
     scale=10
     #Updating edge weighted degree dict
