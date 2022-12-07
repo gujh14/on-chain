@@ -22,16 +22,15 @@ ticker2name = {
     "ETH": "ethereum",
     "UNI": "uniswap",
     "LINK": "chainlink",
-    "APE": "apecoin"
+    "AXS": "axie-infinity"
     }
 ticker2imgurl = {
     "BTC": "https://www.coingecko.com/coins/1/sparkline", 
     "ETH": "https://www.coingecko.com/coins/279/sparkline", 
     "UNI": "https://www.coingecko.com/coins/12504/sparkline", 
     "LINK": "https://www.coingecko.com/coins/877/sparkline", 
-    "APE": "https://www.coingecko.com/coins/14496/sparkline"
+    "AXS": "https://www.coingecko.com/coins/13029/sparkline",
     }
-
 st.title('On-chain Data Visualizer')
 
 @st.cache
@@ -81,7 +80,7 @@ with col3:
 
 st.header('Choose Token')
 token = st.selectbox('Select token ticker',
-                options=('ETH','UNI','LINK','APE'),
+                options=('ETH','UNI','LINK','AXS'),
                 index=0)
 
 st.header(f'Real-time {token} Token Metrics')
