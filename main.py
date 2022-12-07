@@ -7,8 +7,9 @@ import networkx as nx
 from pyvis.network import Network
 
 #import plotly.graph_objects as go
-from datetime import datetime, date, time, timedelta
+import datetime as dt
 import requests
+import time
 
 token_dict = {"BTC": "bitcoin", "ETH": "ethereum"}
 
@@ -43,13 +44,12 @@ with st.form("Choose Token & Date range"):
     token = st.selectbox('Select token',
                 options=('Select token','ETH','MATIC','SAND'),
                 index=0, label_visibility='collapsed')
-    # Select time range
-    # disabled = True if token == 'Select token' else False
+    # Select date range
     st.write('Select date range (Time Zone: UTC)')
-    min_date = date(2020, 1, 1) # modify here
-    max_date = date(2021, 12, 31) # modify here
+    min_date = dt.date(2020, 1, 1) # modify here
+    max_date = dt.date(2021, 12, 31) # modify here
     user_start_date = st.date_input(f'Start date: from {min_date}', min_date, disabled=False)
-    user_end_date = st.date_input(f'End date: to {max_date}', min_date + timedelta(days=2), disabled=False)
+    user_end_date = st.date_input(f'End date: to {max_date}', min_date + dt.timedelta(days=2), disabled=False)
     date_submitted = st.form_submit_button("Continue")
     if date_submitted:
         if token == 'Select token':
@@ -64,18 +64,24 @@ with st.form("Choose Token & Date range"):
             flag = True
 
 with st.form("Choose Time range"):
-    # disabled = False if (date_submitted and token != 'Select token') else True
+    # Select time range
     disabled = False if flag else True
     user_start_time, user_end_time = st.slider('Select time range',
-        min_value=datetime.combine(user_start_date, time(0, 0)),
-        max_value=datetime.combine(user_end_date, time(23, 59)),
-        value=(datetime.combine(user_start_date, time(0, 0)), datetime.combine(user_end_date, time(23, 59))),
+        min_value=dt.datetime.combine(user_start_date, dt.time(0, 0)),
+        max_value=dt.datetime.combine(user_end_date, dt.time(23, 59)),
+        value=(dt.datetime.combine(user_start_date, dt.time(0, 0)), dt.datetime.combine(user_end_date, dt.time(23, 59))),
         format="YYYY-MM-DD HH:mm",
-        step=timedelta(minutes=1),
+        step=dt.timedelta(minutes=1),
         disabled=disabled)
     time_submitted = st.form_submit_button("Submit")
 
+
+
 if time_submitted:
+    with st.spinner("Analyzing data..."):
+        time.sleep(3)
+    st.success("Done!")
+    st.write(f"Token: {token}")
     st.write(f"From: {user_start_date}")
     st.write(f"To: {user_end_date}")
 
@@ -106,9 +112,12 @@ if time_submitted:
     # Save and read graph as HTML file (on Streamlit Sharing)
     form='%Y-%m-%d %H:%M'
     df['Date'] = pd.to_datetime(df['Date'],format='%Y-%m-%d %H:%M')
+    '''
+    가현님 여기 datetime object 들 수정 부탁드려요ㅠㅠ 위에 import datetime as dt 로 수정했습니다!
+    '''
     user_start=user_start_time
     user_end=user_end_time
-    print("STart: ",datetime.datetime64(user_start))
+    print("STart: ", datetime.datetime64(user_start))
     print("End:",user_end)
     print(df['Date'])
     df_date= df.loc[df['Date'].isin(pd.date_range(user_start,user_end))]
