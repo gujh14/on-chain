@@ -31,7 +31,8 @@ ticker2imgurl = {
     "LINK": "https://www.coingecko.com/coins/877/sparkline", 
     "AXS": "https://www.coingecko.com/coins/13029/sparkline",
     }
-st.title('On-chain Data Visualizer')
+st.set_page_config(layout="wide", page_title="On-chain Data Visualizer", page_icon="📈")
+st.title('📈 On-chain Data Visualizer')
 
 @st.cache
 def call_btc_data():
@@ -77,6 +78,7 @@ with col3:
     trending_coins = [x['item']['name'] for x in trending_data['coins']]
     st.write("Trending Coins")
     st.write(trending_coins)
+    
 
 st.header('Choose Token')
 token = st.selectbox('Select token ticker',
@@ -100,9 +102,17 @@ with col4:
 min_date, max_date = getDateRange(token)
 
 ohlc_data = call_ohlc_data(token, str(min_date), str(max_date), "1d")
-fig = go.Figure(data=[go.Candlestick(x=ohlc_data.index, open=ohlc_data['openPriceUsd'], high=ohlc_data['highPriceUsd'], low=ohlc_data['lowPriceUsd'], close=ohlc_data['closePriceUsd'])])
-fig.update_layout(xaxis_rangeslider_visible=False, title=f'{token} Price Chart from {min_date} to {max_date}')
-st.plotly_chart(fig, use_container_width=True)
+ohlc_fig = go.Figure(data=[go.Candlestick(x=ohlc_data.index, open=ohlc_data['openPriceUsd'], high=ohlc_data['highPriceUsd'], low=ohlc_data['lowPriceUsd'], close=ohlc_data['closePriceUsd'])])
+ohlc_fig.update_layout(xaxis_rangeslider_visible=True, title=f'{token} Price Chart from {min_date} to {max_date}')
+st.plotly_chart(ohlc_fig, use_container_width=True)
+
+# whale_data = get_whale_data(token, from_date=str(min_date), to_date=str(max_date), interval="1d", threshold=100000)
+##
+whale_data = ohlc_data
+whale_fig = go.Figure(data=[go.Scatter(x=whale_data.index, y=whale_data['closePriceUsd'], mode='lines')])
+whale_fig.update_layout(xaxis_rangeslider_visible=True, title=f'{token} Whale Transactions from {min_date} to {max_date}')
+st.plotly_chart(whale_fig, use_container_width=True)
+##
 
 st.header('Choose Datetime range')
 with st.form("Choose Date range"):
@@ -145,42 +155,83 @@ st.text(f"On-chain Network of {token} from {user_start_time} to {user_end_time} 
 min_value = 0
 max_value = 0
 if token == 'ETH':
-    min_value = 30
-    max_value = 300
+    min_value = 10000
+    max_value = 30000
 else:
     min_value = 1000
     max_value = 10000
 
 user_min = st.slider('Adjust MIN value',min_value=min_value,max_value=max_value,value=min_value) # need to modify
 
-st.write(user_min)
-
 # if token != "Select token":
 df = get_data(token, str(user_start_time), str(user_end_time), user_min, 50)
 
-print(str(user_start_time))
-print(str(user_end_time))
-print(user_min)
-# Create networkx graph object from pandas dataframe
 G = nx.from_pandas_edgelist(df, source='From', target='To', edge_attr='Value', create_using=nx.MultiGraph())
-d=dict(G.degree)
-scale=10
-#Updating edge weighted degree dict
-d.update((x, scale*y) for x, y in d.items())
+
+edge_info=nx.get_edge_attributes(G,'Value')
+nx.set_node_attributes(G, 0, 'size')
+volume={}
+title={}
+for i in (G.nodes().keys()):
+    volume[i]={}
+    volume[i]['neighbor']=[]
+    volume[i]['amount']=[]
+    title[i]=''
+
+for edge in G.edges():
+    e=list(edge)
+    e.append(0)
+    e=tuple(e)
+    # To set node size corresponding to weights
+    G.nodes[edge[0]]['size']+=edge_info[e]
+    G.nodes[edge[1]]['size']+=edge_info[e]
+    #각 노드의 이웃에 대한 정보
+    if(edge[1] not in volume[edge[0]]['neighbor']):
+        volume[edge[0]]['neighbor'].append(edge[1])
+        volume[edge[0]]['amount'].append(edge_info[e])
+    else:
+        idx=volume[edge[0]]['neighbor'].index(edge[1])
+        volume[edge[0]]['amount'][idx]+=edge_info[e]
+    if(edge[0] not in volume[edge[1]]['neighbor']):
+        volume[edge[1]]['neighbor'].append(edge[0])
+        volume[edge[1]]['amount'].append(edge_info[e])
+    else:
+        idx=volume[edge[1]]['neighbor'].index(edge[0])
+        volume[edge[1]]['amount'][idx]+=edge_info[e]
+print("VOLUME:",volume)
+node_size=nx.get_node_attributes(G,'size')
+data=list(nx.get_node_attributes(G,'size').values())
+norm_size = [(float(i)-min(data))/(max(data)-min(data)) for i in data]
+
+for i in range(len(list(volume.keys()))):
+    node_size[list(volume.keys())[i]]=norm_size[i]*100
+
+for i in (G.nodes().keys()):
+    # sort descending order
+    volume[i]['amount']=np.sort(volume[i]['amount'], axis=None)[::-1]
+    arg_sort=np.argsort(volume[i]['amount'])
+    volume[i]['neighbor']=[volume[i]['neighbor'][j] for j in arg_sort]
+
+for i in volume.keys():
+    title[i]+="...................Top Transaction Neighbors...................\t\t\t\tAmount\n"
+    for j in range(len(volume[i]['neighbor'])):
+        if(j<5):
+            title[i]+=volume[i]['neighbor'][j]+' :   '
+            title[i]+=str(volume[i]['amount'][j])+"\n"
     
 #Setting up size attribute
-nx.set_node_attributes(G,d,'size')
-    
+nx.set_node_attributes(G,node_size,'size')
+nx.set_node_attributes(G,title,'title')
 # Initiate PyVis network object
-coin_net = Network(height='465px', bgcolor='#222222', font_color='white')
+coin_net = Network(height='1000px', bgcolor='#222222', font_color='white')
 
 # Take Networkx graph and translate it to a PyVis graph format
 coin_net.from_nx(G)
 
 # Generate network with specific layout settings
-coin_net.repulsion(node_distance=420, central_gravity=0.33,
-                    spring_length=110, spring_strength=0.10,
-                    damping=0.95)
+coin_net.repulsion(node_distance=300, central_gravity=0.33,
+                        spring_length=110, spring_strength=0.10,
+                        damping=0.95)
 
 # Save and read graph as HTML file (on Streamlit Sharing)
 try:
@@ -195,5 +246,5 @@ except:
     HtmlFile = open(f'{path}/pyvis_graph.html', 'r', encoding='utf-8')
 
 # Load HTML file in HTML component for display on Streamlit page
-components.html(HtmlFile.read(), height=435)
+components.html(HtmlFile.read(), height=1000)
 
