@@ -11,8 +11,7 @@ import datetime as dt
 import requests
 import time
 
-from data import get_data
-from data import getDateRange
+from data import get_data, getDateRange, getWhaleData
 
 import san
 san.ApiConfig.api_key = "5eltgwflu5h23c3v_f2ky7f3nxsufx2m4"
@@ -106,13 +105,18 @@ ohlc_fig = go.Figure(data=[go.Candlestick(x=ohlc_data.index, open=ohlc_data['ope
 ohlc_fig.update_layout(xaxis_rangeslider_visible=True, title=f'{token} Price Chart from {min_date} to {max_date}')
 st.plotly_chart(ohlc_fig, use_container_width=True)
 
-# whale_data = get_whale_data(token, from_date=str(min_date), to_date=str(max_date), interval="1d", threshold=100000)
-##
-whale_data = ohlc_data
-whale_fig = go.Figure(data=[go.Scatter(x=whale_data.index, y=whale_data['closePriceUsd'], mode='lines')])
+# modify here ?
+threshold = 1000
+if token == "ETH":
+    threshold = 10000
+else:
+    threshold = 10000
+
+whale_data = getWhaleData(token, from_date=min_date, to_date=max_date, interval=dt.timedelta(days=1), threshold=threshold)
+# whale_data = ohlc_data
+whale_fig = go.Figure(data=[go.Scatter(x=whale_data.index, y=whale_data['count'], mode='lines')])
 whale_fig.update_layout(xaxis_rangeslider_visible=True, title=f'{token} Whale Transactions from {min_date} to {max_date}')
 st.plotly_chart(whale_fig, use_container_width=True)
-##
 
 st.header('Choose Datetime range')
 with st.form("Choose Date range"):

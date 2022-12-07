@@ -1,5 +1,7 @@
 from database.CRUD_tx import CRUD_tx
 import datetime as dt
+import pandas as pd
+import numpy as np
 
 def get_data(token, user_start, user_end, user_min, n):
     crud = CRUD_tx()
@@ -18,3 +20,24 @@ def getDateRange(token):
     max = crud.readDateDB(maxsql).split('-')
 
     return dt.date(int(min[0]), int(min[1]), int(min[2])), dt.date(int(max[0]), int(max[1]), int(max[2]))
+
+def getWhaleData(token, from_date, to_date, interval, threshold):
+    crud = CRUD_tx()
+    df = pd.DataFrame()
+    
+    while from_date != to_date:
+        from_date_start = np.datetime64(from_date)
+        from_date_end = np.datetime64(from_date+interval)
+        
+        sql = " SELECT COUNT(*) from {schema}.{table} WHERE TO_TIMESTAMP(datetime,'YYYY-MM-DD HH24:MI:SS')>='{from_date}' AND TO_TIMESTAMP(datetime,'YYYY-MM-DD HH24:MI:SS')<'{from_date_end}' AND value>{threshold}".format(schema='testschema',table=token,from_date=from_date,from_date_end=from_date_end,threshold=threshold)
+    
+        try:
+            crud.cursor.execute(sql)
+            result = crud.cursor.fetchall()
+        except Exception as e :
+            result = (" read DB err",e)
+        newdf = pd.DataFrame({'count':[result[0][0]]}, index=[np.datetime64(from_date)])
+        df = pd.concat([df, newdf])
+        from_date = from_date + interval
+
+    return df
