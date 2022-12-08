@@ -30,8 +30,15 @@ ticker2imgurl = {
     "LINK": "https://www.coingecko.com/coins/877/sparkline", 
     "AXS": "https://www.coingecko.com/coins/13029/sparkline",
     }
-st.set_page_config(layout="wide", page_title="On-chain Data Visualizer", page_icon="📈")
-st.title('📈 On-chain Data Visualizer')
+st.set_page_config(layout="wide", page_title="Real-time On-chain Data Visualizer", page_icon="📈")
+st.title('📈 Real-time On-chain Data Visualizer')
+
+@st.cache
+def call_fear_greed_data():
+    # api call
+    fear_greed_url = "https://api.alternative.me/fng/"
+    fear_greed_data = requests.get(fear_greed_url).json()
+    return fear_greed_data
 
 @st.cache
 def call_btc_data():
@@ -64,12 +71,37 @@ st.header('Dashboard')
 col1, col2, col3 = st.columns(3)
 # Fear and Greed Index
 with col1:
-    st.image('https://alternative.me/crypto/fear-and-greed-index.png', caption='Fear and Greed Index', use_column_width=True)
+    # st.image('https://alternative.me/crypto/fear-and-greed-index.png', caption='Fear and Greed Index', use_column_width=True)
+    fg_data = call_fear_greed_data()
+    fig = go.Figure()
+    
+    fig.add_trace(go.Indicator(
+        value=int(fg_data['data'][0]['value']),
+        mode="gauge+number",
+        title={'text': f"Now: {fg_data['data'][0]['value_classification']}"},
+        # min = 0, max = 100 with color gradient
+        gauge = {'axis': {'range': [0, 100]},
+                    'bar': {'color': "black"},
+                    'steps' : [
+                        {'range': [0, 20], 'color': "red"},
+                        {'range': [20, 40], 'color': "orange"},
+                        {'range': [40, 60], 'color': "yellow"},
+                        {'range': [60, 80], 'color': "lightgreen"},
+                        {'range': [80, 100], 'color': "green"}],
+        }
+    ))
+    # adjust size
+    fig.update_layout(
+        autosize=False, width=300, height=300
+    )
+    st.write('Fear and Greed Index')
+    st.plotly_chart(fig, use_container_width=True)
 # BTC Price
 with col2:
+    st.write("Bitcoin")
     btc_data = call_btc_data()
     btc_price = btc_data['prices'][0][1]
-    st.metric("BTC Price", f"${btc_price:,.2f}")
+    st.metric("Current Price", f"${btc_price:,.2f}")
     st.image('https://www.coingecko.com/coins/1/sparkline', caption='Last 7 days BTC Price Chart', use_column_width=True)
 # Trending Coins
 with col3:
@@ -91,7 +123,7 @@ coin_data = call_coin_data(token)
 token_price = coin_data['prices'][0][1] ## if token != "Select token" else 0.00
 token_market_cap = coin_data['market_caps'][0][1] / 1000000 ## if token != "Select token" else 0.0
 token_volume = coin_data['total_volumes'][0][1] / 1000000 ## if token != "Select token" else 0.0
-col1.metric("Current price", f"${token_price:,.2f}")
+col1.metric("Current Price", f"${token_price:,.2f}")
 col2.metric("Market Cap", f"${token_market_cap:,.1f}M")
 col3.metric("Volume (24h)", f"${token_volume:,.1f}M")
 with col4:
@@ -100,7 +132,7 @@ with col4:
 
 min_date, max_date = getDateRange(token)
 
-ohlc_data = call_ohlc_data(token, str(min_date), str(max_date), "1d")
+ohlc_data = call_ohlc_data(token, str(min_date), str(max_date + dt.timedelta(days=1)), "1d")
 ohlc_fig = go.Figure(data=[go.Candlestick(x=ohlc_data.index, open=ohlc_data['openPriceUsd'], high=ohlc_data['highPriceUsd'], low=ohlc_data['lowPriceUsd'], close=ohlc_data['closePriceUsd'])])
 ohlc_fig.update_layout(xaxis_rangeslider_visible=True, title=f'{token} Price Chart from {min_date} to {max_date}')
 st.plotly_chart(ohlc_fig, use_container_width=True)
@@ -109,10 +141,12 @@ st.plotly_chart(ohlc_fig, use_container_width=True)
 threshold = 1000
 if token == "ETH":
     threshold = 10000
+elif token == "LINK":
+    threshold = 100
 else:
     threshold = 10000
 
-whale_data = getWhaleData(token, from_date=min_date, to_date=max_date, interval=dt.timedelta(days=1), threshold=threshold)
+whale_data = getWhaleData(token, from_date=min_date, to_date=max_date + dt.timedelta(days=1), interval=dt.timedelta(days=1), threshold=threshold)
 # whale_data = ohlc_data
 whale_fig = go.Figure(data=[go.Scatter(x=whale_data.index, y=whale_data['count'], mode='lines')])
 whale_fig.update_layout(xaxis_rangeslider_visible=True, title=f'{token} Whale Transactions from {min_date} to {max_date}')
@@ -161,6 +195,9 @@ max_value = 0
 if token == 'ETH':
     min_value = 10000
     max_value = 30000
+elif token == 'LINK':
+    min_value = 100
+    max_value = 1000
 else:
     min_value = 1000
     max_value = 10000
@@ -171,17 +208,21 @@ user_min = st.slider('Adjust MIN value',min_value=min_value,max_value=max_value,
 df = get_data(token, str(user_start_time), str(user_end_time), user_min, 50)
 
 G = nx.from_pandas_edgelist(df, source='From', target='To', edge_attr='Value', create_using=nx.MultiGraph())
-
 edge_info=nx.get_edge_attributes(G,'Value')
 nx.set_node_attributes(G, 0, 'size')
+nx.set_node_attributes(G, 0, 'color')
 volume={}
 title={}
 for i in (G.nodes().keys()):
     volume[i]={}
     volume[i]['neighbor']=[]
     volume[i]['amount']=[]
+    #|In value|-|Out Value| 담는 부분
+    volume[i]['adj']=[]
+
     title[i]=''
 
+edge_data=[]
 for edge in G.edges():
     e=list(edge)
     e.append(0)
@@ -193,48 +234,88 @@ for edge in G.edges():
     if(edge[1] not in volume[edge[0]]['neighbor']):
         volume[edge[0]]['neighbor'].append(edge[1])
         volume[edge[0]]['amount'].append(edge_info[e])
+        volume[edge[0]]['adj']=-edge_info[e]
     else:
         idx=volume[edge[0]]['neighbor'].index(edge[1])
         volume[edge[0]]['amount'][idx]+=edge_info[e]
+        volume[edge[0]]['adj']=edge_info[e]
     if(edge[0] not in volume[edge[1]]['neighbor']):
         volume[edge[1]]['neighbor'].append(edge[0])
         volume[edge[1]]['amount'].append(edge_info[e])
+        volume[edge[1]]['adj']=edge_info[e]
     else:
         idx=volume[edge[1]]['neighbor'].index(edge[0])
         volume[edge[1]]['amount'][idx]+=edge_info[e]
-print("VOLUME:",volume)
-node_size=nx.get_node_attributes(G,'size')
-data=list(nx.get_node_attributes(G,'size').values())
-norm_size = [(float(i)-min(data))/(max(data)-min(data)) for i in data]
+        volume[edge[1]]['adj']+=edge_info[e]
+    edge_data.append(edge_info[e])
 
+
+#Normlization for node size
+node_size=nx.get_node_attributes(G,'size')
+
+data=list(nx.get_node_attributes(G,'size').values())
+norm_size= [(float(i)-min(data))/(max(data)-min(data)) for i in data]
+
+#Normalize for edge width
+width={}
+norm_edge= [(float(i)-min(edge_data))/(max(edge_data)-min(edge_data)) for i in edge_data]
+
+
+#Normalization for node color
+color={}
+adj_data=[]
+for i in volume.keys():
+    adj_data.append(volume[i]['adj'])
+norm_adj=[(float(i)-min(adj_data))/(max(adj_data)-min(adj_data)) for i in adj_data]
+
+#Code RGB to 16hex
+def base10Tobase16(i):
+    base16 = "%02X" % int(i)
+    return base16
+def rgb2hex(r, g, b):
+    hex_color = "#" + base10Tobase16(r) + base10Tobase16(g) + base10Tobase16(b)
+    return hex_color
+
+#node size, color, width dictionary generation
 for i in range(len(list(volume.keys()))):
     node_size[list(volume.keys())[i]]=norm_size[i]*100
+    #들어온 값이 많을수록 초록 # check here!
+    color[list(volume.keys())[i]]=rgb2hex(255-norm_adj[i]*255,norm_adj[i]*255,80)
+
+for k in (list(edge_info.keys())):
+    e_idx=list(edge_info.keys()).index(k)
+    width[k]=norm_edge[e_idx]*50
 
 for i in (G.nodes().keys()):
-    # sort descending order
-    volume[i]['amount']=np.sort(volume[i]['amount'], axis=None)[::-1]
-    arg_sort=np.argsort(volume[i]['amount'])
-    volume[i]['neighbor']=[volume[i]['neighbor'][j] for j in arg_sort]
+    argsort = np.argsort(volume[i]['amount'])[::-1]
+    volume[i]['amount'] = list(np.array(volume[i]['amount'])[argsort])
+    volume[i]['neighbor'] = list(np.array(volume[i]['neighbor'])[argsort])
 
 for i in volume.keys():
-    title[i]+="...................Top Transaction Neighbors...................\t\t\t\tAmount\n"
+    tops="Tops Transaction Neighbors"
+    amount_s="Amount"
+    title[i]+="{:-<90}".format("-")+"\n"+" .   |"+'{0:=^42}'.format(tops)+"|"f"{amount_s:=^16}\n"+"{:-<90}".format("-")+"\n"
     for j in range(len(volume[i]['neighbor'])):
         if(j<5):
-            title[i]+=volume[i]['neighbor'][j]+' :   '
-            title[i]+=str(volume[i]['amount'][j])+"\n"
+            title[i]+=str(j+1)+" |  "+f"{volume[i]['neighbor'][j]:<50}"+'  |   '
+            title[i]+=f"{str(volume[i]['amount'][j]):^30}"+"\n"
     
 #Setting up size attribute
 nx.set_node_attributes(G,node_size,'size')
 nx.set_node_attributes(G,title,'title')
+nx.set_edge_attributes(G,width,'weight')
+nx.set_node_attributes(G,color,'color')
+nx.set_edge_attributes(G,'gray','color')
+
 # Initiate PyVis network object
-coin_net = Network(height='1000px', bgcolor='#222222', font_color='white')
+coin_net = Network(height='1000px', bgcolor='#111111', font_color='white')
 
 # Take Networkx graph and translate it to a PyVis graph format
 coin_net.from_nx(G)
 
 # Generate network with specific layout settings
-coin_net.repulsion(node_distance=300, central_gravity=0.33,
-                        spring_length=110, spring_strength=0.10,
+coin_net.repulsion(node_distance=500, central_gravity=0.5,
+                        spring_length=300, spring_strength=0.10,
                         damping=0.95)
 
 # Save and read graph as HTML file (on Streamlit Sharing)
@@ -250,5 +331,5 @@ except:
     HtmlFile = open(f'{path}/pyvis_graph.html', 'r', encoding='utf-8')
 
 # Load HTML file in HTML component for display on Streamlit page
-components.html(HtmlFile.read(), height=1000)
+components.html(HtmlFile.read(), height=700)
 
